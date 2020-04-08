@@ -6,12 +6,12 @@ from torch import nn, optim
 from torch.nn import functional as F
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
-
+from module import custom_dataset
 
 parser = argparse.ArgumentParser(description='VAE MNIST Example')
-parser.add_argument('--batch-size', type=int, default=128, metavar='N',
+parser.add_argument('--batch-size', type=int, default=256, metavar='N',
                     help='input batch size for training (default: 128)')
-parser.add_argument('--epochs', type=int, default=10, metavar='N',
+parser.add_argument('--epochs', type=int, default=100, metavar='N',
                     help='number of epochs to train (default: 10)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='enables CUDA training')
@@ -19,7 +19,7 @@ parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
-parser.add_argument('--category', type=int, default=10, metavar='K',
+parser.add_argument('--category', type=int, default=9, metavar='K',
                     help='how many category on datesets')
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -29,6 +29,7 @@ torch.manual_seed(args.seed)
 device = torch.device("cuda" if args.cuda else "cpu")
 
 kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
+"""
 train_loader = torch.utils.data.DataLoader(
     datasets.MNIST('../data', train=True, download=True,
                    transform=transforms.ToTensor()),
@@ -36,7 +37,18 @@ train_loader = torch.utils.data.DataLoader(
 test_loader = torch.utils.data.DataLoader(
     datasets.MNIST('../data', train=False, transform=transforms.ToTensor()),
     batch_size=args.batch_size, shuffle=False, **kwargs)
-
+"""
+to_tenser_transforms = transforms.Compose([
+transforms.ToTensor() # Tensorに変換
+])
+train_dataset = custom_dataset.CustomDataset("/home/is0383kk/workspace/study/datasets/MNIST",to_tenser_transforms,train=True)
+train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
+                                            batch_size=args.batch_size,
+                                            shuffle=True)
+test_dataset = custom_dataset.CustomDataset("/home/is0383kk/workspace/study/datasets/MNIST",to_tenser_transforms,train=False)
+test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
+                                            batch_size=args.batch_size,
+                                            shuffle=True)
 ngf = 64
 ndf = 64
 nc = 1
@@ -202,7 +214,7 @@ def test(epoch):
             test_loss += model.loss_function(recon_batch, data, mu, logvar, args.category).mean()
             test_loss.item()
             if i == 0:
-                n = min(data.size(0), 8)
+                n = min(data.size(0), 15)
                 comparison = torch.cat([data[:n],
                                       recon_batch.view(args.batch_size, 1, 28, 28)[:n]])
                 save_image(comparison.cpu(),
