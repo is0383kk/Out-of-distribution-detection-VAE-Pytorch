@@ -49,7 +49,7 @@ train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
 test_dataset = custom_dataset.CustomDataset("/home/is0383kk/workspace/study/datasets/MNIST",to_tenser_transforms,train=False)
 test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
                                             batch_size=args.batch_size,
-                                            shuffle=True)
+                                            shuffle=False)
 ngf = 64
 ndf = 64
 nc = 1 # 画像のチャンネル数
@@ -183,7 +183,7 @@ def test(epoch):
             recon_batch, mu, logvar = model(data)
             test_loss += loss_function(recon_batch, data, mu, logvar).item()
             if i == 0:
-                n = min(data.size(0), 15)
+                n = min(data.size(0), 15) # 画像に表示されるMNISTの枚数
                 comparison = torch.cat([data[:n],
                                       recon_batch.view(args.batch_size, 1, 28, 28)[:n]])
                 save_image(comparison.cpu(),

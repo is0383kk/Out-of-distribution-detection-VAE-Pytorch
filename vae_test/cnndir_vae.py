@@ -7,17 +7,19 @@ from torch.nn import functional as F
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 from module import custom_dataset
+import numpy as np
+import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='VAE MNIST Example')
-parser.add_argument('--batch-size', type=int, default=256, metavar='N',
+parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                     help='input batch size for training (default: 128)')
-parser.add_argument('--epochs', type=int, default=100, metavar='N',
+parser.add_argument('--epochs', type=int, default=10, metavar='N',
                     help='number of epochs to train (default: 10)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='enables CUDA training')
-parser.add_argument('--seed', type=int, default=1, metavar='S',
+parser.add_argument('--seed', type=int, default=10, metavar='S',
                     help='random seed (default: 1)')
-parser.add_argument('--log-interval', type=int, default=10, metavar='N',
+parser.add_argument('--log-interval', type=int, default=2, metavar='N',
                     help='how many batches to wait before logging training status')
 parser.add_argument('--category', type=int, default=9, metavar='K',
                     help='how many category on datesets')
@@ -48,7 +50,7 @@ train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
 test_dataset = custom_dataset.CustomDataset("/home/is0383kk/workspace/study/datasets/MNIST",to_tenser_transforms,train=False)
 test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
                                             batch_size=args.batch_size,
-                                            shuffle=True)
+                                            shuffle=False)
 ngf = 64
 ndf = 64
 nc = 1
@@ -176,7 +178,7 @@ class VAE(nn.Module):
         KLD = 0.5 * ((var_division + diff_term + logvar_division).sum(1) - K)
         #print(KLD)
         
-        return BCE + KLD
+        return BCE + KLD, BCE
 
 
 model = VAE().to(device)
@@ -190,7 +192,8 @@ def train(epoch):
         optimizer.zero_grad()
         recon_batch, mu, logvar = model(data)
         #print(f"recon_batch->{recon_batch}")
-        loss = model.loss_function(recon_batch, data, mu, logvar, args.category).mean()
+        loss, BCE = model.loss_function(recon_batch, data, mu, logvar, args.category)
+        loss = loss.mean()
         loss.backward()
         train_loss += loss.item()
         optimizer.step()
@@ -202,7 +205,8 @@ def train(epoch):
 
     print('====> Epoch: {} Average loss: {:.4f}'.format(
           epoch, train_loss / len(train_loader.dataset)))
-
+    
+    return train_loss / len(train_loader.dataset), BCE
 
 def test(epoch):
     model.eval()
@@ -211,10 +215,11 @@ def test(epoch):
         for i, (data, _) in enumerate(test_loader):
             data = data.to(device)
             recon_batch, mu, logvar = model(data)
-            test_loss += model.loss_function(recon_batch, data, mu, logvar, args.category).mean()
+            loss, BCE = model.loss_function(recon_batch, data, mu, logvar, args.category)
+            test_loss += loss.mean()
             test_loss.item()
             if i == 0:
-                n = min(data.size(0), 15)
+                n = min(data.size(0), 18)
                 comparison = torch.cat([data[:n],
                                       recon_batch.view(args.batch_size, 1, 28, 28)[:n]])
                 save_image(comparison.cpu(),
@@ -222,13 +227,46 @@ def test(epoch):
 
     test_loss /= len(test_loader.dataset)
     print('====> Test set loss: {:.4f}'.format(test_loss))
+    return test_loss.cpu().numpy(), BCE
+
 
 if __name__ == "__main__":
+    # グラフ用
+    fig1, ax1 = plt.subplots()
+    fig2, ax2 = plt.subplots()
+    ax1.set_xlabel('Epoch', fontsize=15)  
+    ax1.set_ylabel('Loss', fontsize=15)  
+    ax2.set_xlabel('Epoch', fontsize=15)  
+    ax2.set_ylabel('ReconstructionError',fontsize=15)  
+    c1, c2 = "blue", "green"
+    l1, l2, l3, l4 = "Train_loss", "Test_loss", "Train_ReconErr", "Test_ReconErr"
+    tr_loss = []
+    te_loss = []
+    tr_bce = []
+    te_bce = []
+    plt_epoch = np.arange(args.epochs)
+    # 学習
     for epoch in range(1, args.epochs + 1):
-        train(epoch)
-        test(epoch)
+        trl, trbce = train(epoch)
+        tel, tebce = test(epoch)
+        tr_loss.append(trl)
+        te_loss.append(tel)
+        tr_bce.append(trbce)
+        te_bce.append(tebce)
+        print(f"{epoch} Epoch:Train Loss->{tr_loss}")
+        print(f"{epoch} Epoch:Test Loss->{te_loss}")
+        
         with torch.no_grad():
             sample = torch.randn(64, args.category).to(device)
             sample = model.decode(sample).cpu()
             save_image(sample.view(64, 1, 28, 28),
                        'result/dir_cnn/sample_' + str(epoch) + '.png')
+    # グラフ描画
+    ax1.plot(plt_epoch, tr_loss, color=c1, label=l1)
+    ax1.plot(plt_epoch, te_loss, color=c2, label=l2)
+    ax1.legend(loc=1) 
+    fig1.savefig('loss.png')
+    ax2.plot(plt_epoch, tr_bce, color=c1, label=l3)
+    ax2.plot(plt_epoch, te_bce, color=c2, label=l4)
+    ax2.legend(loc=1) 
+    fig2.savefig('recon.png')
