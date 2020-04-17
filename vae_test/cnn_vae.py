@@ -10,7 +10,7 @@ from module import custom_dataset
 
 
 parser = argparse.ArgumentParser(description='VAE MNIST Example')
-parser.add_argument('--batch-size', type=int, default=256, metavar='N',
+parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                     help='input batch size for training (default: 128)')
 parser.add_argument('--epochs', type=int, default=100, metavar='N',
                     help='number of epochs to train (default: 10)')

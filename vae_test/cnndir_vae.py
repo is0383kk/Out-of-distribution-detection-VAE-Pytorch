@@ -65,7 +65,7 @@ def prior(K, alpha):
     a = torch.Tensor(1, K).float().fill_(alpha) # 1 x 50 全て1.0
     mean = a.log().t() - a.log().mean(1)
     var = ((1 - 2.0 / K) * a.reciprocal()).t() + (1.0 / K ** 2) * a.reciprocal().sum(1)
-    return mean.t(), var.t()
+    return mean.t(), var.t() # これを事前分布に定義
 
 class VAE(nn.Module):
     def __init__(self):
