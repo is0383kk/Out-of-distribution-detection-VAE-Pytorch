@@ -76,6 +76,7 @@ def show(img):
     plt.show()
 
 train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=10, shuffle=False)
+test_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=10, shuffle=False)
 
 for i,(images,labels) in enumerate(train_loader):
     print("i->",i)
@@ -84,8 +85,8 @@ for i,(images,labels) in enumerate(train_loader):
     #print(labels.numpy())
     #print(type(images[0].numpy()))
 
-    show(images[0])
-    show(torchvision.utils.make_grid(images,padding=1))
+    show(images[i])
+    #show(torchvision.utils.make_grid(images,padding=1))
     plt.axis("off")
 
-    break
+    #break

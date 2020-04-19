@@ -74,8 +74,8 @@ class CustomDataset(torch.utils.data.Dataset):
         #画像ファイルパスから画像を読み込む
         with open(image,"rb") as f:
             image = Image.open(f)
-            image = image.convert("RGB")
-            #image = image.convert("L") # グレイスケール
+            #image = image.convert("RGB")
+            image = image.convert("L") # グレイスケール
         #前処理がある場合
         if self.transform is not None:
             image = self.transform(image)

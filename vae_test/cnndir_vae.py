@@ -9,6 +9,7 @@ from torchvision.utils import save_image
 from module import custom_dataset
 import numpy as np
 import matplotlib.pyplot as plt
+from torch.utils.data.dataset import Subset
 
 parser = argparse.ArgumentParser(description='VAE MNIST Example')
 parser.add_argument('--batch-size', type=int, default=128, metavar='N',
@@ -27,11 +28,12 @@ args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
 torch.manual_seed(args.seed)
+torch.cuda.manual_seed(args.seed)  
 
 device = torch.device("cuda" if args.cuda else "cpu")
 
-kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 """
+kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 train_loader = torch.utils.data.DataLoader(
     datasets.MNIST('../data', train=True, download=True,
                    transform=transforms.ToTensor()),
@@ -43,14 +45,40 @@ test_loader = torch.utils.data.DataLoader(
 to_tenser_transforms = transforms.Compose([
 transforms.ToTensor() # Tensorに変換
 ])
-train_dataset = custom_dataset.CustomDataset("/home/is0383kk/workspace/study/datasets/MNIST",to_tenser_transforms,train=True)
+train_test_dataset = custom_dataset.CustomDataset("/home/is0383kk/workspace/study/datasets/MNIST",to_tenser_transforms,train=True)
+# shuffle せずに分割
+"""
+n_samples = len(train_test_dataset) # n_samples is 60000
+train_size = int(n_samples * 0.8) # train_size is 48000
+
+subset1_indices = list(range(0,train_size)) # [0,1,.....47999]
+subset2_indices = list(range(train_size,n_samples)) # [48000,48001,.....59999]
+
+train_dataset = Subset(train_test_dataset, subset1_indices)
+test_dataset   = Subset(train_test_dataset, subset2_indices)
+"""
+
+# shuffleしてから分割してくれる.
+
+n_samples = len(train_test_dataset) # n_samples is 60000
+train_size = int(len(train_test_dataset) * 0.88) # train_size is 48000
+test_size = n_samples - train_size # val_size is 48000
+train_dataset, test_dataset = torch.utils.data.random_split(train_test_dataset, [train_size, test_size])
+
 train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                             batch_size=args.batch_size,
-                                            shuffle=True)
-test_dataset = custom_dataset.CustomDataset("/home/is0383kk/workspace/study/datasets/MNIST",to_tenser_transforms,train=False)
+                                            shuffle=False)
 test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
                                             batch_size=args.batch_size,
                                             shuffle=False)
+anomaly_dataset = custom_dataset.CustomDataset("/home/is0383kk/workspace/study/datasets/MNIST",to_tenser_transforms,train=False)
+anomaly_loader = torch.utils.data.DataLoader(dataset=anomaly_dataset,
+                                            batch_size=args.batch_size,
+                                            shuffle=False)
+print(f"train_dataset[0]->{train_dataset[0]}")
+print(f"Train data->{len(train_dataset)}")
+print(f"Test data->{len(test_dataset)}")
+print(f"Anomaly data->{len(anomaly_dataset)}")
 ngf = 64
 ndf = 64
 nc = 1
@@ -159,6 +187,7 @@ class VAE(nn.Module):
 
     # Reconstruction + KL divergence losses summed over all elements and batch
     def loss_function(self, recon_x, x, mu, logvar, K):
+        beta = 1.0
         BCE = F.binary_cross_entropy(recon_x.view(-1, 784), x.view(-1, 784), reduction='sum')
         # see Appendix B from VAE paper:
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
@@ -178,7 +207,7 @@ class VAE(nn.Module):
         KLD = 0.5 * ((var_division + diff_term + logvar_division).sum(1) - K)
         #print(KLD)
         
-        return BCE + KLD, BCE
+        return (beta * BCE) + KLD, BCE
 
 
 model = VAE().to(device)
@@ -223,10 +252,31 @@ def test(epoch):
                 comparison = torch.cat([data[:n],
                                       recon_batch.view(args.batch_size, 1, 28, 28)[:n]])
                 save_image(comparison.cpu(),
-                         'result/dir_cnn/reconstruction_' + str(epoch) + '.png', nrow=n)
+                         'result/dir_cnn/recon_' + str(epoch) + '.png', nrow=n)
 
     test_loss /= len(test_loader.dataset)
     print('====> Test set loss: {:.4f}'.format(test_loss))
+    return test_loss.cpu().numpy(), BCE
+
+def anomaly(epoch):
+    model.eval()
+    test_loss = 0
+    with torch.no_grad():
+        for i, (data, _) in enumerate(anomaly_loader):
+            data = data.to(device)
+            recon_batch, mu, logvar = model(data)
+            loss, BCE = model.loss_function(recon_batch, data, mu, logvar, args.category)
+            test_loss += loss.mean()
+            test_loss.item()
+            if i == 0:
+                n = min(data.size(0), 18)
+                comparison = torch.cat([data[:n],
+                                      recon_batch.view(args.batch_size, 1, 28, 28)[:n]])
+                save_image(comparison.cpu(),
+                         'result/dir_cnn/anomay_' + str(epoch) + '.png', nrow=n)
+
+    test_loss /= len(test_loader.dataset)
+    print('====> Anomaly set loss: {:.4f}'.format(test_loss))
     return test_loss.cpu().numpy(), BCE
 
 
@@ -234,39 +284,58 @@ if __name__ == "__main__":
     # グラフ用
     fig1, ax1 = plt.subplots()
     fig2, ax2 = plt.subplots()
+    fig3, ax3 = plt.subplots()
     ax1.set_xlabel('Epoch', fontsize=15)  
     ax1.set_ylabel('Loss', fontsize=15)  
     ax2.set_xlabel('Epoch', fontsize=15)  
     ax2.set_ylabel('ReconstructionError',fontsize=15)  
-    c1, c2 = "blue", "green"
-    l1, l2, l3, l4 = "Train_loss", "Test_loss", "Train_ReconErr", "Test_ReconErr"
+    ax3.set_xlabel('Epoch', fontsize=15)  
+    ax3.set_ylabel('ReconstructionError',fontsize=15)  
+    c1, c2, c3 = "blue", "green", "red"
+    l1, l2, l3 = "Train_loss", "Test_loss", "Anomaly_loss"
+    l4, l5, l6 = "Train_ReconErr", "Test_ReconErr", "Anomaly_ReconErr"  
     tr_loss = []
     te_loss = []
+    an_loss = []
     tr_bce = []
     te_bce = []
+    an_bce = []
     plt_epoch = np.arange(args.epochs)
     # 学習
     for epoch in range(1, args.epochs + 1):
+        
         trl, trbce = train(epoch)
+        print(f"trbce->{trbce}")
         tel, tebce = test(epoch)
+        anl, anbce = anomaly(epoch)
+        
         tr_loss.append(trl)
         te_loss.append(tel)
+        an_loss.append(anl)
+
         tr_bce.append(trbce)
         te_bce.append(tebce)
-        print(f"{epoch} Epoch:Train Loss->{tr_loss}")
-        print(f"{epoch} Epoch:Test Loss->{te_loss}")
+        an_bce.append(anbce)
+
+        #print(f"{epoch} Epoch:Train Loss->{tr_loss}")
+        #print(f"{epoch} Epoch:Test Loss->{te_loss}")
+        #print(f"{epoch} Epoch:anomaly Loss->{an_loss}")
         
         with torch.no_grad():
             sample = torch.randn(64, args.category).to(device)
             sample = model.decode(sample).cpu()
             save_image(sample.view(64, 1, 28, 28),
                        'result/dir_cnn/sample_' + str(epoch) + '.png')
-    # グラフ描画
+    # ロス関数プロット
     ax1.plot(plt_epoch, tr_loss, color=c1, label=l1)
     ax1.plot(plt_epoch, te_loss, color=c2, label=l2)
+    ax1.plot(plt_epoch, an_loss, color=c3, label=l3)
     ax1.legend(loc=1) 
-    fig1.savefig('loss.png')
-    ax2.plot(plt_epoch, tr_bce, color=c1, label=l3)
-    ax2.plot(plt_epoch, te_bce, color=c2, label=l4)
+    fig1.savefig('dir_loss.png')
+    
+    # 再構成項プロット
+    ax2.plot(plt_epoch, tr_bce, color=c1, label=l4)
+    ax2.plot(plt_epoch, te_bce, color=c2, label=l5)
+    ax2.plot(plt_epoch, an_bce, color=c3, label=l6)
     ax2.legend(loc=1) 
-    fig2.savefig('recon.png')
+    fig2.savefig('dir_rec.png')
