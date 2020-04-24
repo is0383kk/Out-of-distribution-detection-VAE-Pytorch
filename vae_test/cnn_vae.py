@@ -292,6 +292,9 @@ if __name__ == "__main__":
             sample = model.decode(sample).cpu()
             save_image(sample.view(64, 1, 28, 28),
                        'result/cnn/sample_' + str(epoch) + '.png')
+    np.save('./npy/cnn_tr_loss.npy', np.array(tr_loss))
+    np.save('./npy/cnn_te_loss.npy', np.array(te_loss))
+    np.save('./npy/cnn_an_loss.npy', np.array(an_loss))
     # ロス関数プロット
     ax1.plot(plt_epoch, tr_loss, color=c1, label=l1)
     ax1.plot(plt_epoch, te_loss, color=c2, label=l2)
