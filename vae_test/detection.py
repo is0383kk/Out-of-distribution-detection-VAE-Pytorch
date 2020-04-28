@@ -183,8 +183,7 @@ class VAE_DIR(nn.Module):
         return self.decode(z), mu, logvar
 
     # Reconstruction + KL divergence losses summed over all elements and batch
-    def loss_function_dir(self, recon_x, x, mu, logvar, K):
-        beta = 1.0
+    def loss_function_dir(self, recon_x, x, mu, logvar, K, beta):
         BCE = F.binary_cross_entropy(recon_x.view(-1, 784), x.view(-1, 784), reduction='sum')
         # see Appendix B from VAE paper:
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
@@ -288,8 +287,7 @@ class VAE_CNN(nn.Module):
         return self.decode(z), mu, logvar
     
     # Reconstruction + KL divergence losses summed over all elements and batch
-    def loss_function_cnn(self, recon_x, x, mu, logvar):
-        beta = 1.0
+    def loss_function_cnn(self, recon_x, x, mu, logvar, beta):
         BCE = F.binary_cross_entropy(recon_x.view(-1, 784), x.view(-1, 784), reduction='sum')
 
         # see Appendix B from VAE paper:
@@ -303,55 +301,93 @@ class VAE_CNN(nn.Module):
 
 model_dir = VAE_DIR().to(device)
 model_dir.load_state_dict(torch.load('./pth/dir_vae'+str(args.anomaly)+'.pth'))
+model_dir.eval()
 
 model_cnn = VAE_CNN().to(device)
 model_cnn.load_state_dict(torch.load('./pth/cnn_vae'+str(args.anomaly)+'.pth'))
+model_cnn.eval()
+
+model_dir_beta = VAE_DIR().to(device)
+model_dir_beta.load_state_dict(torch.load('./pth/dir_vae'+str(args.anomaly)+'_b.pth'))
+model_dir_beta.eval()
+
+model_cnn_beta = VAE_CNN().to(device)
+model_cnn_beta.load_state_dict(torch.load('./pth/cnn_vae'+str(args.anomaly)+'_b.pth'))
+model_cnn_beta.eval()
+
+print(model_cnn)
 
 y_score_cnn = []
 y_score_dir = []
+y_score_cnn_beta = []
+y_score_dir_beta = []
 # CNN
 for i, (data, _) in enumerate(test_loader):
-    data = data.to(device)
-    #print(f"{i} : data => {len(data)}")
-    recon_batch, mu, logvar = model_cnn(data)
-    loss, BCE = model_cnn.loss_function_cnn(recon_batch, data, mu, logvar)
-    loss = loss.cpu().detach().numpy()
-    loss = np.round(loss, 1)
-    y_score_cnn.append(loss)
-    #print(f"y_score => {y_score}")
-    #print(f"cnn_loss => {cnn_loss}")
+    with torch.no_grad():
+        data = data.to(device)
+        #print(f"{i} : data => {len(data)}")
+        recon_batch, mu, logvar = model_cnn(data)
+        recon_batch_b, mu_b, logvar_b = model_cnn_beta(data)
+        loss, BCE = model_cnn.loss_function_cnn(recon_batch, data, mu, logvar, 1.0)
+        loss_b, BCE_b = model_cnn_beta.loss_function_cnn(recon_batch_b, data, mu_b, logvar_b, 10.0)
+        loss = loss.cpu().detach().numpy()
+        loss = np.round(loss, 1)
+        loss_b = loss_b.cpu().detach().numpy()
+        loss_b = np.round(loss_b, 1)
+        y_score_cnn.append(loss)
+        y_score_cnn_beta.append(loss_b)
+        #print(f"y_score => {y_score}")
+        #print(f"cnn_loss => {cnn_loss}")
 
 for i, (data, _) in enumerate(anomaly_loader):
-    data = data.to(device)
-    #print(f"{i} : data => {len(data)}")
-    recon_batch, mu, logvar = model_cnn(data)
-    loss, BCE = model_cnn.loss_function_cnn(recon_batch, data, mu, logvar)
-    loss = loss.cpu().detach().numpy()
-    loss = np.round(loss, 1)
-    y_score_cnn.append(loss)
-    #print(f"y_score => {y_score}")
+    with torch.no_grad():
+        data = data.to(device)
+        #print(f"{i} : data => {len(data)}")
+        recon_batch, mu, logvar = model_cnn(data)
+        recon_batch_b, mu_b, logvar_b = model_cnn_beta(data)
+        loss, BCE = model_cnn.loss_function_cnn(recon_batch, data, mu, logvar, 1.0)
+        loss_b, BCE_b = model_cnn_beta.loss_function_cnn(recon_batch_b, data, mu_b, logvar_b, 10.0)
+        loss = loss.cpu().detach().numpy()
+        loss_b = loss_b.cpu().detach().numpy()
+        loss = np.round(loss, 1)
+        loss_b = np.round(loss_b, 1)
+        y_score_cnn.append(loss)
+        y_score_cnn_beta.append(loss_b)
+        #print(f"y_score => {y_score}")
 
 # Dir
 for i, (data, _) in enumerate(test_loader):
-    data = data.to(device)
-    #print(f"{i} : data => {len(data)}")
-    recon_batch, mu, logvar = model_dir(data)
-    loss, BCE = model_dir.loss_function_dir(recon_batch, data, mu, logvar, args.category)
-    loss = loss.cpu().detach().numpy()
-    loss = np.round(loss, 1)
-    y_score_dir.append(loss)
-    #print(f"y_score => {y_score}")
-    #print(f"cnn_loss => {cnn_loss}")
+    with torch.no_grad():
+        data = data.to(device)
+        #print(f"{i} : data => {len(data)}")
+        recon_batch, mu, logvar = model_dir(data)
+        recon_batch_b, mu_b, logvar_b = model_dir_beta(data)
+        loss, BCE = model_dir.loss_function_dir(recon_batch, data, mu, logvar, args.category, 1.0)
+        loss_b, BCE_b = model_dir_beta.loss_function_dir(recon_batch_b, data, mu_b, logvar_b, args.category, 10.0)
+        loss = loss.cpu().detach().numpy()
+        loss_b = loss_b.cpu().detach().numpy()
+        loss = np.round(loss, 1)
+        loss_b = np.round(loss_b, 1)
+        y_score_dir.append(loss)
+        y_score_dir_beta.append(loss_b)
+        #print(f"y_score => {y_score}")
+        #print(f"cnn_loss => {cnn_loss}")
 
 for i, (data, _) in enumerate(anomaly_loader):
-    data = data.to(device)
-    #print(f"{i} : data => {len(data)}")
-    recon_batch, mu, logvar = model_dir(data)
-    loss, BCE = model_dir.loss_function_dir(recon_batch, data, mu, logvar, args.category)
-    loss = loss.cpu().detach().numpy()
-    loss = np.round(loss, 1)
-    y_score_dir.append(loss)
-    #print(f"y_score => {y_score}")
+    with torch.no_grad():
+        data = data.to(device)
+        #print(f"{i} : data => {len(data)}")
+        recon_batch, mu, logvar = model_dir(data)
+        recon_batch_b, mu_b, logvar_b = model_dir_beta(data)
+        loss, BCE = model_dir.loss_function_dir(recon_batch, data, mu, logvar, args.category,1.0)
+        loss_b, BCE_b = model_dir_beta.loss_function_dir(recon_batch_b, data, mu_b, logvar_b, args.category,10.0)
+        loss = loss.cpu().detach().numpy()
+        loss = np.round(loss, 1)
+        loss_b = loss_b.cpu().detach().numpy()
+        loss_b = np.round(loss_b, 1)
+        y_score_dir.append(loss)
+        y_score_dir_beta.append(loss_b)
+        #print(f"y_score => {y_score}")
 
 
 import numpy as np
@@ -369,14 +405,22 @@ print(f"y_true => {len(y_true)}")
 
 fpr_cnn, tpr_cnn, thresholds_cnn = metrics.roc_curve(y_true, y_score_cnn)
 fpr_dir, tpr_dir, thresholds_dir = metrics.roc_curve(y_true, y_score_dir)
+fpr_cnn_beta, tpr_cnn_beta, thresholds_cnn_beta = metrics.roc_curve(y_true, y_score_cnn_beta)
+fpr_dir_beta, tpr_dir_beta, thresholds_dir_beta = metrics.roc_curve(y_true, y_score_dir_beta)
 #print(f"thresholds => {thresholds}")
 auc_cnn = metrics.auc(fpr_cnn, tpr_cnn)
 auc_dir = metrics.auc(fpr_dir, tpr_dir)
+auc_cnn_beta = metrics.auc(fpr_cnn_beta, tpr_cnn_beta)
+auc_dir_beta = metrics.auc(fpr_dir_beta, tpr_dir_beta)
 print(f"AUC_CNN => {auc_cnn}")
 print(f"AUC_Dir => {auc_dir}")
-l1, l2 = "Baseline", "Proposed"
+print(f"AUC_CNN_B => {auc_cnn_beta}")
+print(f"AUC_Dir_B => {auc_dir_beta}")
+l1, l2, l3, l4 = "Baseline", "Proposed", "Baseline(b=10)", "Proposed(b=10)"
 plt.plot(fpr_cnn, tpr_cnn, label=l1)
 plt.plot(fpr_dir, tpr_dir, label=l2)
+plt.plot(fpr_cnn_beta, tpr_cnn_beta, label=l3)
+plt.plot(fpr_dir_beta, tpr_dir_beta, label=l4)
 plt.legend(loc='lower right')
 plt.xlabel('FPR: False positive rate',fontsize=13)
 plt.ylabel('TPR: True positive rate',fontsize=13)

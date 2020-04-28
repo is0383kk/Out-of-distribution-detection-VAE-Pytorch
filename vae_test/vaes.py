@@ -74,11 +74,11 @@ train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                             shuffle=True)
 test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
                                             batch_size=args.batch_size,
-                                            shuffle=False)
+                                            shuffle=True)
 anomaly_dataset = custom_dataset.CustomDataset("/home/is0383kk/workspace/study/datasets/MNIST",to_tenser_transforms,train=False)
 anomaly_loader = torch.utils.data.DataLoader(dataset=anomaly_dataset,
                                             batch_size=args.batch_size,
-                                            shuffle=False)
+                                            shuffle=True)
 print(f"Train data->{len(train_dataset)}")
 print(f"Test data->{len(test_dataset)}")
 print(f"Anomaly data->{len(anomaly_dataset)}")
@@ -191,7 +191,7 @@ class VAE_DIR(nn.Module):
 
     # Reconstruction + KL divergence losses summed over all elements and batch
     def loss_function_dir(self, recon_x, x, mu, logvar, K):
-        beta = 1.0
+        beta = 10.0
         BCE = F.binary_cross_entropy(recon_x.view(-1, 784), x.view(-1, 784), reduction='sum')
         # see Appendix B from VAE paper:
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
@@ -211,7 +211,7 @@ class VAE_DIR(nn.Module):
         KLD = 0.5 * ((var_division + diff_term + logvar_division).sum(1) - K)
         #print(KLD)
         
-        return (beta * BCE) + KLD, -BCE
+        return BCE + (beta * KLD), -BCE
 
 class VAE_CNN(nn.Module):
     def __init__(self):
@@ -296,7 +296,7 @@ class VAE_CNN(nn.Module):
     
     # Reconstruction + KL divergence losses summed over all elements and batch
     def loss_function_cnn(self, recon_x, x, mu, logvar):
-        beta = 1.0
+        beta = 10.0
         BCE = F.binary_cross_entropy(recon_x.view(-1, 784), x.view(-1, 784), reduction='sum')
 
         # see Appendix B from VAE paper:
@@ -305,7 +305,7 @@ class VAE_CNN(nn.Module):
         # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
         KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
-        return (beta * BCE) + KLD, -BCE
+        return BCE + (beta * KLD), -BCE
 
 
 model_dir = VAE_DIR().to(device)
@@ -480,7 +480,7 @@ if __name__ == "__main__":
     ax1.set_xlabel('Epoch', fontsize=13)  
     ax1.set_ylabel('ELBO', fontsize=13)  
     ax1.set_xticks(plt_epoch, minor=False)
-    ax1.set_ylim(90, 250)
+    ax1.set_ylim(80, 270)
 
     ax2.set_xlabel('Epoch', fontsize=13)  
     ax2.set_ylabel('ReconstructionError',fontsize=13)  
@@ -489,7 +489,7 @@ if __name__ == "__main__":
     ax3.set_xlabel('Epoch', fontsize=13)  
     ax3.set_ylabel('ELBO',fontsize=13)  
     ax3.set_xticks(plt_epoch, minor=False)
-    ax3.set_ylim(90, 250)
+    ax3.set_ylim(80, 270)
 
     ax4.set_xlabel('Epoch', fontsize=13)  
     ax4.set_ylabel('ReconstructionError',fontsize=13) 
@@ -498,7 +498,7 @@ if __name__ == "__main__":
     ax5.set_xlabel('Epoch', fontsize=13)  
     ax5.set_ylabel('ELBO',fontsize=13)  
     ax5.set_xticks(plt_epoch, minor=False)
-    ax5.set_ylim(90, 250)
+    ax5.set_ylim(80, 270)
 
     ax6.set_xlabel('Epoch', fontsize=13)  
     ax6.set_ylabel('ReconstructionError',fontsize=13)  
@@ -522,7 +522,7 @@ if __name__ == "__main__":
         te_cnn_bce.append(tecbce)
         an_cnn_loss.append(ancl)
         an_cnn_bce.append(ancbce)
-        torch.save(model_cnn.state_dict(), './pth/cnn_vae7.pth')
+        torch.save(model_cnn.state_dict(), './pth/cnn_vae2_b.pth')
     # DIR学習
     for epoch in range(1, args.epochs + 1):
         trdl, trdbce = train_dir(epoch)
@@ -534,7 +534,7 @@ if __name__ == "__main__":
         te_dir_bce.append(tedbce)
         an_dir_loss.append(andl)
         an_dir_bce.append(andbce)
-        torch.save(model_dir.state_dict(), './pth/dir_vae7.pth')
+        torch.save(model_dir.state_dict(), './pth/dir_vae2_b.pth')
         #print(f"{epoch} Epoch:Train Loss->{tr_loss}")
         #print(f"{epoch} Epoch:Test Loss->{te_loss}")
         #print(f"{epoch} Epoch:anomaly Loss->{an_loss}")
