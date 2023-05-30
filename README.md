@@ -14,6 +14,8 @@ This is an image reconstructed on the training data.
 <div><img src='./recon/recon_train10.png' height="150px"></div>
 This is an image reconstructed on data not used for training.
 <div><img src='./recon/recon_anomaly10.png' height="150px"></div>
+  
+  
 This repository uses this feature to detect out-of-distribution.  
 
 # How to run
