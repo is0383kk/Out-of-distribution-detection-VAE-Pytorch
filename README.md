@@ -11,9 +11,9 @@ As shown in the image below.（Blue line is the data used for training・Red lin
 </div>
 Also, for the reconstructed images, the data used for training are reconstructed well, while the data not used for training are not reconstructed.  
 This is an image reconstructed on the training data.
-<div><img src='./recon/recon_train10.png' height="250px"></div>
+<div><img src='./recon/recon_train10.png' height="150px"></div>
 This is an image reconstructed on data not used for training.
-<div><img src='./recon/recon_anomaly10.png' height="250px"></div>
+<div><img src='./recon/recon_anomaly10.png' height="150px"></div>
 This repository uses this feature to detect out-of-distribution.  
 
 # How to run
