@@ -1,4 +1,4 @@
-# Anomaly detection using Variational Auto-Encoder
+# Out-of-distribution-detection-VAE-Pytorch
 This repository is for out-of-distribution detection using VAE  
 
 # VAE features in out-of-distribution detection
