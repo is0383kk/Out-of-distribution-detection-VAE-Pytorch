@@ -28,7 +28,7 @@ The results of out-of-distribution detection are evaluated by ROC curve and AUC.
   
 The result of a successful out-of-distribution detection is as follows.（The AUC in this case is 0.8）
 
-<div><img src='./roc5.png' height="200px"></div>
+<div><img src='./roc5.png' height="300px"></div>
 
 - In case of good results
     - ROC curve leans to the upper left
@@ -36,7 +36,7 @@ The result of a successful out-of-distribution detection is as follows.（The AU
   
 On the other hand, the results of poor out-of-distribution detection are as follows.（The AUC in this case is 0.04））
 
-<div><img src='./roc1.png' height="200px"></div>
+<div><img src='./roc1.png' height="300px"></div>
 
 - In case of bad result
     - ROC curve is shifted to the lower right
