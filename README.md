@@ -7,7 +7,7 @@ VAE maximizes the objective function (ELBO) during training.
 At this time, the ELBO is calculated lower for data not used for training than for data used for training data.   
 As shown in the image below.（Blue line is the data used for training・Red line is data not used for training）
 <div>
-	<img src='./elbo.png' height="300px">
+	<img src='./img/example_elbo.png' height="300px">
 </div>
 Also, for the reconstructed images, the data used for training are reconstructed well, while the data not used for training are not reconstructed.  
 This is an image reconstructed on the training data.
