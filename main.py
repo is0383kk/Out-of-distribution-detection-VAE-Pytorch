@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(description='VAE MNIST Example')
 parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                     help='input batch size for training (default: 128)')
 parser.add_argument('--epochs', type=int, default=20, metavar='N',
-                    help='number of epochs to train (default: 10)')
+                    help='number of epochs to train (default: 20)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 parser.add_argument('--no-mps', action='store_true', default=False,
@@ -53,7 +53,7 @@ train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_
 all_train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, **kwargs)
 
 
-# anomaly target numeric-only dataset
+# Anomaly target numeric-only dataset
 anomaly_dataset = datasets.MNIST('../data', train=False, download=True, transform=transforms.ToTensor())
 anomaly_mask = (anomaly_dataset.targets == ANOMALY_TARGET)
 anomaly_dataset.data = anomaly_dataset.data[anomaly_mask]
@@ -171,27 +171,37 @@ def plot_roc():
 
     fpr, tpr, thresholds = metrics.roc_curve(y_true, y_score)
     auc = metrics.auc(fpr, tpr)
+    index_candidates = tpr-fpr
+    index = np.where(index_candidates==max(index_candidates))[0][0]
+    cutoff = thresholds[index]
+
+    # Plot ROC
     plt.plot(fpr, tpr)
     plt.xlabel('FPR: False positive rate', fontsize=13); plt.ylabel('TPR: True positive rate', fontsize=13)
     plt.grid()
-    plt.savefig('./roc'+str(ANOMALY_TARGET)+'.png')
+    plt.savefig('./roc' + str(ANOMALY_TARGET) + '.png')
     plt.close()
-    print("AUC:" + str(np.round(auc, 2)))
+
+    return auc, - cutoff
 
 if __name__ == "__main__":
-    fig1, ax1 = plt.subplots()
-    ax1.set_xlabel('Epoch', fontsize=15); ax1.set_ylabel('ELBO', fontsize=15)  
-    train_elbo_list = [];anomaly_loss_list = []
+    train_elbo_list = [];anomaly_elbo_list = []
 
     for epoch in range(1, args.epochs + 1):
         avg_train_elbo = train(epoch);avg_anomaly_elbo = anomaly(epoch)
-        train_elbo_list.append(avg_train_elbo);anomaly_loss_list.append(avg_anomaly_elbo)
+        train_elbo_list.append(avg_train_elbo);anomaly_elbo_list.append(avg_anomaly_elbo)
+
+    auc, cutoff = plot_roc()
 
     # Plot ELBO
-    ax1.plot(np.arange(args.epochs), train_elbo_list, color="blue", label="ELBO_Train")
-    ax1.plot(np.arange(args.epochs), anomaly_loss_list, color="red", label="ELBO_Anomaly")
-    fig1.savefig('./elbo.png')
+    plt.plot()
+    plt.xlabel('Epoch', fontsize=15); plt.ylabel('ELBO', fontsize=15)  
+    plt.plot(np.arange(args.epochs), train_elbo_list, color="blue", label="ELBO_Train")
+    plt.plot(np.arange(args.epochs), anomaly_elbo_list, color="red", label="ELBO_Anomaly")
+    plt.plot(np.arange(args.epochs), np.full(args.epochs, cutoff), color="black", label="Cutoff")
+    plt.legend(loc="lower right")
+    plt.savefig('./elbo.png')
     plt.close()
 
-    # Plot ROC
-    plot_roc()
+    # Output Result
+    print("AUC:" + str(np.round(auc, 2)))
